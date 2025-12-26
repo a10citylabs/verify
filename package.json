@@ -1,0 +1,19 @@
+{
+  "name": "c2pa-viewer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A minimal C2PA content credentials viewer built with Vite and @contentauth/c2pa-web",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@contentauth/c2pa-web": "^0.5.5"
+  }
+}
