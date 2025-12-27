@@ -37,7 +37,7 @@ async function initC2pa(): Promise<void> {
 
 // Load default image on page load
 async function loadDefaultImage(): Promise<void> {
-  const defaultImagePath = import.meta.env.BASE_URL + 'img/Radha.jpg';
+  const defaultImagePath = import.meta.env.BASE_URL + 'img/butteryfly.jpg';
   
   try {
     const response = await fetch(defaultImagePath);
@@ -47,7 +47,7 @@ async function loadDefaultImage(): Promise<void> {
     }
     
     const blob = await response.blob();
-    const file = new File([blob], 'Radha.jpg', { type: blob.type || 'image/jpeg' });
+    const file = new File([blob], 'butteryfly.jpg', { type: blob.type || 'image/jpeg' });
     
     await processFile(file);
   } catch (error) {
