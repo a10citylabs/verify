@@ -26,9 +26,33 @@ async function initC2pa(): Promise<void> {
   try {
     c2pa = await createC2pa({ wasmSrc });
     console.log('C2PA SDK initialized successfully');
+    
+    // Load default image after SDK is ready
+    await loadDefaultImage();
   } catch (error) {
     console.error('Failed to initialize C2PA SDK:', error);
     showError('Failed to initialize C2PA SDK. Please refresh the page.');
+  }
+}
+
+// Load default image on page load
+async function loadDefaultImage(): Promise<void> {
+  const defaultImagePath = import.meta.env.BASE_URL + 'img/Radha.jpg';
+  
+  try {
+    const response = await fetch(defaultImagePath);
+    if (!response.ok) {
+      console.log('Default image not found, skipping auto-load');
+      return;
+    }
+    
+    const blob = await response.blob();
+    const file = new File([blob], 'Radha.jpg', { type: blob.type || 'image/jpeg' });
+    
+    await processFile(file);
+  } catch (error) {
+    console.log('Could not load default image:', error);
+    // Silently fail - user can still upload their own image
   }
 }
 
