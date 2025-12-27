@@ -689,13 +689,13 @@ body {
 .json-null { color: var(--gray-500); }
 
 /* ============================================
-   Footer
+   Footer (Synced with A10city Main Site)
    ============================================ */
 
 .site-footer {
     background: rgba(13, 33, 55, 0.98);
     border-top: 1px solid rgba(164, 228, 57, 0.1);
-    padding: 1.5rem 2rem;
+    padding: 3rem 2rem 1.5rem;
     margin-top: auto;
 }
 
@@ -704,7 +704,100 @@ body {
     margin: 0 auto;
 }
 
+.footer-main {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 2rem;
+}
+
+.footer-company h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 1rem;
+}
+
+.cin-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.cin-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--lime-primary);
+    background: rgba(164, 228, 57, 0.12);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.cin-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--gray-200);
+    background: var(--navy-dark);
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid rgba(164, 228, 57, 0.15);
+}
+
+.footer-email a {
+    color: var(--gray-200);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s ease;
+}
+
+.footer-email a:hover,
+.footer-email a:focus {
+    color: var(--lime-primary);
+}
+
+.footer-links h3,
+.footer-legal h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 1rem;
+}
+
+.footer-links ul,
+.footer-legal ul {
+    list-style: none;
+}
+
+.footer-links li,
+.footer-legal li {
+    margin-bottom: 0.6rem;
+}
+
+.footer-links a,
+.footer-legal a {
+    color: var(--gray-500);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover,
+.footer-links a:focus,
+.footer-legal a:hover,
+.footer-legal a:focus {
+    color: var(--lime-primary);
+}
+
 .footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -761,6 +854,14 @@ body {
         padding: 0 1rem;
     }
 
+    .nav-menu {
+        gap: 1.25rem;
+    }
+
+    .nav-link {
+        font-size: 0.9rem;
+    }
+
     .page-container {
         padding: 6rem 1rem 3rem;
     }
@@ -771,6 +872,11 @@ body {
         padding: 1.5rem;
     }
 
+    .footer-main {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
     .footer-bottom {
         flex-direction: column;
         text-align: center;
@@ -778,6 +884,16 @@ body {
 
     .summary-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-brand {
+        font-size: 1.25rem;
+    }
+
+    .nav-menu {
+        gap: 1rem;
     }
 }
 
@@ -803,6 +919,47 @@ body {
     
     .site-footer {
         border-top: 2px solid var(--white);
+    }
+
+    a {
+        text-decoration: underline;
+    }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+    .navbar,
+    .skip-link,
+    .footer-social {
+        display: none !important;
+    }
+    
+    body {
+        background: var(--white);
+        color: var(--navy-deep);
+    }
+    
+    .page-container {
+        padding-top: 1rem;
+    }
+    
+    .upload-card,
+    .results-card,
+    .preview-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+    }
+    
+    .site-footer {
+        background: var(--white);
+        border-top: 1px solid var(--gray-200);
+    }
+    
+    a {
+        color: var(--navy-deep);
     }
 }
 
