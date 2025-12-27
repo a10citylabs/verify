@@ -37,7 +37,7 @@ async function initC2pa(): Promise<void> {
 
 // Load default image on page load
 async function loadDefaultImage(): Promise<void> {
-  const defaultImagePath = import.meta.env.BASE_URL + 'img/butteryfly.jpg';
+  const defaultImagePath = 'https://raw.githubusercontent.com/a10citylabs/verify/main/img/butteryfly.jpg';
   
   try {
     const response = await fetch(defaultImagePath);
