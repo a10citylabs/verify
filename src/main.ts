@@ -1,4 +1,5 @@
 import './style.css';
+import './c2pa.css';
 import { createC2pa, type C2paSdk } from '@contentauth/c2pa-web';
 import wasmSrc from '@contentauth/c2pa-web/resources/c2pa.wasm?url';
 
