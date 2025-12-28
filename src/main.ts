@@ -244,7 +244,7 @@ function createCredentialDetails(manifestStore: unknown): void {
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <span>Content Credentials Found (${validationIssues.length} Issue${validationIssues.length !== 1 ? 's' : ''})</span>
+          <span>${validationIssues.length} Issue${validationIssues.length !== 1 ? 's' : ''}</span>
         ` : `
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -438,8 +438,8 @@ function createCredentialDetails(manifestStore: unknown): void {
     </div>
   `;
   
-  // Combine all sections
-  credentialDetails.innerHTML = validationHtml + signerHtml + contentHtml + processHtml + ingredientsHtml + statsHtml;
+  // Combine all sections - validation/issues at the end
+  credentialDetails.innerHTML = signerHtml + contentHtml + processHtml + ingredientsHtml + statsHtml + validationHtml;
 }
 
 // Process uploaded file
