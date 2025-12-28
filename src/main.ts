@@ -264,7 +264,6 @@ function createCredentialDetails(manifestStore: unknown): void {
   if (signatureInfo) {
     const issuer = signatureInfo.issuer ? String(signatureInfo.issuer) : 'Unknown Issuer';
     const signedAt = signatureInfo.time ? formatDate(String(signatureInfo.time)) : null;
-    const certSerial = (signatureInfo.cert_serial_number || signatureInfo.certSerialNumber) ? String(signatureInfo.cert_serial_number || signatureInfo.certSerialNumber) : null;
     
     signerHtml = `
       <div class="credential-section">
