@@ -285,12 +285,6 @@ function createCredentialDetails(manifestStore: unknown): void {
             <span class="item-value">${escapeHtml(signedAt)}</span>
           </div>
           ` : ''}
-          ${certSerial ? `
-          <div class="credential-item">
-            <span class="item-label">Certificate</span>
-            <span class="item-value cert-serial">${escapeHtml(certSerial.substring(0, 20))}...</span>
-          </div>
-          ` : ''}
         </div>
       </div>
     `;
