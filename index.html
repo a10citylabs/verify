@@ -47,7 +47,7 @@
   <main id="main-content" class="page-container">
     <header class="page-header">
       <h1>C2PA Content Credentials Viewer</h1>
-      <p class="page-subtitle">Verify digital content authenticity</p>
+      <p class="page-subtitle">Verify digital content authenticity and provenance</p>
     </header>
 
     <div class="viewer-layout">
@@ -105,7 +105,7 @@
       <!-- Results Section -->
       <section class="results-section" aria-labelledby="results-heading">
         <div class="results-card">
-          <h2 id="results-heading">C2PA Data</h2>
+          <h2 id="results-heading">Content Credentials</h2>
           
           <!-- Loading State -->
           <div class="loading-state" id="loading-state" hidden>
@@ -136,7 +136,7 @@
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <h3>No C2PA Data Found</h3>
+            <h3>No Content Credentials Found</h3>
             <p>This image does not contain C2PA content credentials.</p>
           </div>
 
@@ -155,16 +155,18 @@
 
           <!-- Results Container -->
           <div class="results-container" id="results-container" hidden>
-            <!-- Summary -->
-            <div class="summary-section" id="summary-section">
-              <h3>Summary</h3>
-              <div class="summary-grid" id="summary-grid"></div>
+            <!-- Credential Details -->
+            <div class="credential-details" id="credential-details">
+              <!-- Content will be dynamically inserted -->
             </div>
 
             <!-- Raw JSON -->
-            <div class="raw-data-section">
-              <div class="raw-data-header">
+            <details class="raw-data-section">
+              <summary class="raw-data-header">
                 <h3>Raw C2PA Data</h3>
+                <span class="expand-hint">Click to expand</span>
+              </summary>
+              <div class="raw-data-content">
                 <button class="btn-copy" id="copy-btn" type="button" aria-label="Copy JSON to clipboard">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -172,9 +174,9 @@
                   </svg>
                   <span>Copy</span>
                 </button>
+                <pre class="json-viewer" id="json-output"><code></code></pre>
               </div>
-              <pre class="json-viewer" id="json-output"><code></code></pre>
-            </div>
+            </details>
           </div>
         </div>
       </section>
