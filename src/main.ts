@@ -181,7 +181,7 @@ function extractActions(assertions: unknown[]): string[] {
 }
 
 // Create detailed credential display
-function createCredentialDetails(manifestStore: unknown): void {
+function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number): void {
   credentialDetails.innerHTML = '';
   
   const store = manifestStore as Record<string, unknown>;
@@ -411,7 +411,9 @@ function createCredentialDetails(manifestStore: unknown): void {
   
   // Manifests Count
   const manifestCount = manifests ? Object.keys(manifests).length : 0;
-  
+  const manifestJson = JSON.stringify(manifestStore);
+  const manifestSizeBytes = new TextEncoder().encode(manifestJson).length;
+
   const statsHtml = `
     <div class="credential-section stats-section">
       <div class="stats-grid">
@@ -427,6 +429,16 @@ function createCredentialDetails(manifestStore: unknown): void {
           <span class="stat-value">${ingredients?.length || 0}</span>
           <span class="stat-label">Ingredient${(ingredients?.length || 0) !== 1 ? 's' : ''}</span>
         </div>
+        <div class="stat-item">
+          <span class="stat-value">${formatFileSize(manifestSizeBytes)}</span>
+          <span class="stat-label">Manifest Size</span>
+        </div>
+        ${verifyTimeMs !== undefined ? `
+        <div class="stat-item">
+          <span class="stat-value">${verifyTimeMs < 1000 ? verifyTimeMs.toFixed(0) + 'ms' : (verifyTimeMs / 1000).toFixed(2) + 's'}</span>
+          <span class="stat-label">Verify Time</span>
+        </div>
+        ` : ''}
       </div>
     </div>
   `;
@@ -452,17 +464,19 @@ async function processFile(file: File): Promise<void> {
   
   try {
     // Create reader from blob
+    const verifyStart = performance.now();
     const reader = await c2pa.reader.fromBlob(file.type, file);
-    
+
     // Check if reader was created (no C2PA data found if null)
     if (!reader) {
       showState('no-data');
       return;
     }
-    
+
     // Get manifest store
     const manifestStore = await reader.manifestStore();
-    
+    const verifyTimeMs = Math.round(performance.now() - verifyStart);
+
     // Free the reader to avoid memory leaks
     await reader.free();
     
@@ -482,7 +496,7 @@ async function processFile(file: File): Promise<void> {
     }
     
     // Create credential details display
-    createCredentialDetails(manifestStore);
+    createCredentialDetails(manifestStore, verifyTimeMs);
     
     // Display raw JSON
     currentJsonData = JSON.stringify(manifestStore, null, 2);
