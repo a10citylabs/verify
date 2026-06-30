@@ -1,16 +1,9 @@
 import './style.css';
 import './c2pa.css';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl from 'maplibre-gl';
 import { createC2pa, type C2paSdk } from '@contentauth/c2pa-web';
 import wasmSrc from '@contentauth/c2pa-web/resources/c2pa.wasm?url';
-
-// Fix Leaflet default marker icon paths broken by bundlers
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
@@ -271,43 +264,47 @@ function poiIcon(tags: Record<string, string>): string {
   return '📌';
 }
 
-// Render a Leaflet map with POIs into the given container element
+// Render a MapLibre GL map with POIs into the given container element
 async function renderLocationMap(lat: number, lng: number, container: HTMLElement): Promise<void> {
-  container.style.height = '320px';
-
-  const map = L.map(container).setView([lat, lng], 15);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  }).addTo(map);
+  const map = new maplibregl.Map({
+    container,
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [lng, lat],
+    zoom: 14,
+    attributionControl: {},
+  });
 
   // Photo location marker
-  L.marker([lat, lng])
-    .addTo(map)
-    .bindPopup('<strong>📷 Photo Location</strong><br>Extracted from EXIF data')
-    .openPopup();
+  const photoEl = document.createElement('div');
+  photoEl.innerHTML = '📷';
+  photoEl.style.cssText = 'font-size:28px;line-height:1;cursor:pointer;filter:drop-shadow(0 2px 4px rgba(0,0,0,.7))';
+  new maplibregl.Marker({ element: photoEl, anchor: 'center' })
+    .setLngLat([lng, lat])
+    .setPopup(new maplibregl.Popup({ offset: 20 }).setHTML('<strong>📷 Photo Location</strong><br>Extracted from EXIF data'))
+    .addTo(map);
 
-  // Fetch and render POIs
-  const places = await fetchNearbyPlaces(lat, lng);
-  for (const place of places) {
-    if (!place.lat || !place.lon || !place.tags) continue;
-    const tags = place.tags;
-    const name = tags.name || tags.amenity || tags.tourism || tags.shop || 'Place';
-    const icon = poiIcon(tags);
-    const category = tags.amenity || tags.tourism || tags.shop || tags.historic || '';
+  // Fetch and render POIs after map loads
+  map.on('load', async () => {
+    const places = await fetchNearbyPlaces(lat, lng);
+    for (const place of places) {
+      if (!place.lat || !place.lon || !place.tags) continue;
+      const tags = place.tags;
+      const name = tags.name || tags.amenity || tags.tourism || tags.shop || 'Place';
+      const icon = poiIcon(tags);
+      const category = tags.amenity || tags.tourism || tags.shop || tags.historic || '';
 
-    const divIcon = L.divIcon({
-      html: `<span style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${icon}</span>`,
-      className: '',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-    });
+      const el = document.createElement('div');
+      el.innerHTML = icon;
+      el.style.cssText = 'font-size:20px;line-height:1;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))';
 
-    L.marker([place.lat, place.lon], { icon: divIcon })
-      .addTo(map)
-      .bindPopup(`<strong>${escapeHtml(name)}</strong>${category ? `<br><small>${escapeHtml(category)}</small>` : ''}`);
-  }
+      new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([place.lon, place.lat])
+        .setPopup(new maplibregl.Popup({ offset: 16 }).setHTML(
+          `<strong>${escapeHtml(name)}</strong>${category ? `<br><small>${escapeHtml(category)}</small>` : ''}`
+        ))
+        .addTo(map);
+    }
+  });
 }
 
 // Extract author information from assertions
@@ -633,7 +630,7 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
             <span class="item-value">${Math.abs(lat).toFixed(6)}°${latDir}, ${Math.abs(lng).toFixed(6)}°${lngDir}</span>
           </div>
           <div id="exif-map-container" class="exif-map-container" aria-label="Map showing photo location"></div>
-          <p class="map-attribution-note">Map data from <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>. Places of interest from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass API</a>.</p>
+          <p class="map-attribution-note">Map tiles by <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · Data © <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors. Places from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass API</a>.</p>
         </div>
       </div>
     `;
