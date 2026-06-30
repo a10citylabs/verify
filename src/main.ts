@@ -1,7 +1,16 @@
 import './style.css';
 import './c2pa.css';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { createC2pa, type C2paSdk } from '@contentauth/c2pa-web';
 import wasmSrc from '@contentauth/c2pa-web/resources/c2pa.wasm?url';
+
+// Fix Leaflet default marker icon paths broken by bundlers
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
@@ -140,6 +149,165 @@ function syntaxHighlight(json: string): string {
       return `<span class="${cls}">${match}</span>`;
     }
   );
+}
+
+// Parse a GPS coordinate string to decimal degrees.
+// Handles formats like "40,45.37050000N", "40 45 22.23", "40 45 22.23N"
+function parseGpsCoord(value: string, ref: string): number | null {
+  const trimmed = value.trim().replace(/[NSEW]$/, '');
+  let decimal: number | null = null;
+
+  if (trimmed.includes(',')) {
+    // "degrees,decimal_minutes" format
+    const parts = trimmed.split(',');
+    if (parts.length >= 2) {
+      const deg = parseFloat(parts[0]);
+      const min = parseFloat(parts[1]);
+      if (!isNaN(deg) && !isNaN(min)) {
+        decimal = deg + min / 60;
+      }
+    }
+  } else if (trimmed.includes(' ')) {
+    // "degrees minutes seconds" space-separated
+    const parts = trimmed.trim().split(/\s+/);
+    if (parts.length === 3) {
+      const deg = parseFloat(parts[0]);
+      const min = parseFloat(parts[1]);
+      const sec = parseFloat(parts[2]);
+      if (!isNaN(deg) && !isNaN(min) && !isNaN(sec)) {
+        decimal = deg + min / 60 + sec / 3600;
+      }
+    } else if (parts.length === 2) {
+      const deg = parseFloat(parts[0]);
+      const min = parseFloat(parts[1]);
+      if (!isNaN(deg) && !isNaN(min)) {
+        decimal = deg + min / 60;
+      }
+    }
+  } else {
+    decimal = parseFloat(trimmed);
+    if (isNaN(decimal)) return null;
+  }
+
+  if (decimal === null) return null;
+  return (ref === 'S' || ref === 'W') ? -decimal : decimal;
+}
+
+// Extract GPS coordinates from stds.exif assertion data
+function extractGpsFromExif(assertions: unknown[]): { lat: number; lng: number } | null {
+  for (const assertion of assertions) {
+    const a = assertion as Record<string, unknown>;
+    if (a.label === 'stds.exif' && a.data) {
+      const data = a.data as Record<string, unknown>;
+      const latStr = data['exif:GPSLatitude'] as string | undefined;
+      const lngStr = data['exif:GPSLongitude'] as string | undefined;
+      const latRef = (data['exif:GPSLatitudeRef'] as string | undefined) || 'N';
+      const lngRef = (data['exif:GPSLongitudeRef'] as string | undefined) || 'E';
+
+      if (latStr && lngStr) {
+        const lat = parseGpsCoord(latStr, latRef);
+        const lng = parseGpsCoord(lngStr, lngRef);
+        if (lat !== null && lng !== null) {
+          return { lat, lng };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+type OverpassElement = {
+  type: string;
+  id: number;
+  lat?: number;
+  lon?: number;
+  tags?: Record<string, string>;
+};
+
+// Fetch nearby places of interest from Overpass API
+async function fetchNearbyPlaces(lat: number, lng: number, radius = 500): Promise<OverpassElement[]> {
+  const query = `[out:json][timeout:10];
+(
+  node["amenity"](around:${radius},${lat},${lng});
+  node["tourism"](around:${radius},${lat},${lng});
+  node["shop"]["name"](around:${radius},${lat},${lng});
+  node["historic"](around:${radius},${lat},${lng});
+);
+out body 30;`;
+
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query,
+    });
+    if (!res.ok) throw new Error(`Overpass API returned ${res.status}`);
+    const json = await res.json() as { elements: OverpassElement[] };
+    return json.elements || [];
+  } catch {
+    return [];
+  }
+}
+
+function poiIcon(tags: Record<string, string>): string {
+  const amenity = tags.amenity || '';
+  const tourism = tags.tourism || '';
+  const historic = tags.historic || '';
+  if (tourism === 'museum' || historic) return '🏛️';
+  if (tourism === 'hotel' || amenity === 'hotel') return '🏨';
+  if (amenity === 'restaurant') return '🍽️';
+  if (amenity === 'cafe') return '☕';
+  if (amenity === 'bar' || amenity === 'pub') return '🍺';
+  if (tourism === 'attraction' || tourism === 'viewpoint') return '📍';
+  if (amenity === 'bank' || amenity === 'atm') return '🏦';
+  if (amenity === 'hospital' || amenity === 'clinic') return '🏥';
+  if (amenity === 'pharmacy') return '💊';
+  if (amenity === 'fuel') return '⛽';
+  if (amenity === 'parking') return '🅿️';
+  if (amenity === 'place_of_worship') return '⛪';
+  if (amenity === 'school' || amenity === 'university') return '🎓';
+  if (amenity === 'library') return '📚';
+  if (amenity === 'theatre' || amenity === 'cinema') return '🎭';
+  if (tags.shop) return '🛍️';
+  return '📌';
+}
+
+// Render a Leaflet map with POIs into the given container element
+async function renderLocationMap(lat: number, lng: number, container: HTMLElement): Promise<void> {
+  container.style.height = '320px';
+
+  const map = L.map(container).setView([lat, lng], 15);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // Photo location marker
+  L.marker([lat, lng])
+    .addTo(map)
+    .bindPopup('<strong>📷 Photo Location</strong><br>Extracted from EXIF data')
+    .openPopup();
+
+  // Fetch and render POIs
+  const places = await fetchNearbyPlaces(lat, lng);
+  for (const place of places) {
+    if (!place.lat || !place.lon || !place.tags) continue;
+    const tags = place.tags;
+    const name = tags.name || tags.amenity || tags.tourism || tags.shop || 'Place';
+    const icon = poiIcon(tags);
+    const category = tags.amenity || tags.tourism || tags.shop || tags.historic || '';
+
+    const divIcon = L.divIcon({
+      html: `<span style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${icon}</span>`,
+      className: '',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+
+    L.marker([place.lat, place.lon], { icon: divIcon })
+      .addTo(map)
+      .bindPopup(`<strong>${escapeHtml(name)}</strong>${category ? `<br><small>${escapeHtml(category)}</small>` : ''}`);
+  }
 }
 
 // Extract author information from assertions
@@ -443,8 +611,44 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
     </div>
   `;
   
+  // Location section placeholder (map rendered async after innerHTML set)
+  const gpsCoords = assertions ? extractGpsFromExif(assertions) : null;
+  let locationHtml = '';
+  if (gpsCoords) {
+    const { lat, lng } = gpsCoords;
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lngDir = lng >= 0 ? 'E' : 'W';
+    locationHtml = `
+      <div class="credential-section">
+        <h3 class="section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          Location
+        </h3>
+        <div class="section-content">
+          <div class="credential-item">
+            <span class="item-label">Coordinates</span>
+            <span class="item-value">${Math.abs(lat).toFixed(6)}°${latDir}, ${Math.abs(lng).toFixed(6)}°${lngDir}</span>
+          </div>
+          <div id="exif-map-container" class="exif-map-container" aria-label="Map showing photo location"></div>
+          <p class="map-attribution-note">Map data from <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>. Places of interest from <a href="https://overpass-api.de" target="_blank" rel="noopener noreferrer">Overpass API</a>.</p>
+        </div>
+      </div>
+    `;
+  }
+
   // Combine all sections - validation/issues at the end
-  credentialDetails.innerHTML = signerHtml + contentHtml + processHtml + ingredientsHtml + statsHtml + validationHtml;
+  credentialDetails.innerHTML = signerHtml + contentHtml + processHtml + ingredientsHtml + locationHtml + statsHtml + validationHtml;
+
+  // Render Leaflet map after DOM is updated
+  if (gpsCoords) {
+    const mapContainer = document.getElementById('exif-map-container');
+    if (mapContainer) {
+      renderLocationMap(gpsCoords.lat, gpsCoords.lng, mapContainer);
+    }
+  }
 }
 
 // Process uploaded file
