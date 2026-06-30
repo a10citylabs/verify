@@ -642,6 +642,33 @@
     letter-spacing: 0.5px;
 }
 
+/* Location Map */
+.exif-map-container {
+    width: 100%;
+    height: 320px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(164, 228, 57, 0.15);
+    margin-top: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.map-attribution-note {
+    font-size: 0.7rem;
+    color: var(--gray-500);
+    margin-top: 0.5rem;
+    line-height: 1.4;
+}
+
+.map-attribution-note a {
+    color: var(--lime-dark);
+    text-decoration: none;
+}
+
+.map-attribution-note a:hover {
+    text-decoration: underline;
+}
+
 /* No Details */
 .no-details {
     color: var(--gray-500);
