@@ -178,12 +178,18 @@
     justify-content: center;
 }
 
-.preview-container img {
+.preview-container img,
+.preview-container video {
     width: 100%;
     height: auto;
     display: block;
     max-height: clamp(150px, 25vh, 250px);
     object-fit: contain;
+}
+
+.preview-container img[hidden],
+.preview-container video[hidden] {
+    display: none;
 }
 
 .file-info {

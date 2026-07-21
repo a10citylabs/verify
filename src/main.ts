@@ -10,8 +10,10 @@ const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const previewCard = document.getElementById('preview-card') as HTMLDivElement;
 const previewImage = document.getElementById('preview-image') as HTMLImageElement;
+const previewVideo = document.getElementById('preview-video') as HTMLVideoElement;
 const fileInfo = document.getElementById('file-info') as HTMLDivElement;
 const loadingState = document.getElementById('loading-state') as HTMLDivElement;
+const loadingText = document.getElementById('loading-text') as HTMLSpanElement;
 const emptyState = document.getElementById('empty-state') as HTMLDivElement;
 const noDataState = document.getElementById('no-data-state') as HTMLDivElement;
 const errorState = document.getElementById('error-state') as HTMLDivElement;
@@ -23,6 +25,25 @@ const copyBtn = document.getElementById('copy-btn') as HTMLButtonElement;
 
 let c2pa: C2paSdk | null = null;
 let currentJsonData: string = '';
+let previewUrl: string | null = null;
+
+const MP4_MIME_TYPES = ['video/mp4', 'application/mp4'];
+
+// Determine the MIME type to hand to the C2PA reader. Some platforms
+// leave file.type empty, so fall back to the file extension.
+function resolveFormat(file: File): string {
+  if (file.type) return file.type;
+  if (/\.mp4$/i.test(file.name)) return 'video/mp4';
+  return '';
+}
+
+function isMp4Format(format: string): boolean {
+  return MP4_MIME_TYPES.includes(format);
+}
+
+function isVideoFormat(format: string): boolean {
+  return format.startsWith('video/') || format === 'application/mp4';
+}
 
 // Initialize C2PA SDK
 async function initC2pa(): Promise<void> {
@@ -655,18 +676,33 @@ async function processFile(file: File): Promise<void> {
     return;
   }
   
-  // Update preview
+  const format = resolveFormat(file);
+  const isVideo = isVideoFormat(format);
+
+  // Update preview, swapping between the image and video elements
   previewCard.hidden = false;
-  previewImage.src = URL.createObjectURL(file);
-  fileInfo.textContent = `${file.name} • ${formatFileSize(file.size)} • ${file.type}`;
-  
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(file);
+  previewImage.hidden = isVideo;
+  previewVideo.hidden = !isVideo;
+  if (isVideo) {
+    previewImage.removeAttribute('src');
+    previewVideo.src = previewUrl;
+  } else {
+    previewVideo.pause();
+    previewVideo.removeAttribute('src');
+    previewImage.src = previewUrl;
+  }
+  fileInfo.textContent = `${file.name} • ${formatFileSize(file.size)} • ${format || 'unknown type'}`;
+
   // Show loading state
+  loadingText.textContent = isVideo ? 'Analyzing video...' : 'Analyzing image...';
   showState('loading');
-  
+
   try {
     // Create reader from blob
     const verifyStart = performance.now();
-    const reader = await c2pa.reader.fromBlob(file.type, file);
+    const reader = await c2pa.reader.fromBlob(format, file);
 
     // Check if reader was created (no C2PA data found if null)
     if (!reader) {
@@ -754,9 +790,12 @@ dropZone.addEventListener('drop', (e) => {
   dropZone.classList.remove('dragover');
   
   const file = e.dataTransfer?.files[0];
-  if (file && file.type.startsWith('image/')) {
-    fileInput.files = e.dataTransfer.files;
-    processFile(file);
+  if (file) {
+    const format = resolveFormat(file);
+    if (format.startsWith('image/') || isMp4Format(format)) {
+      fileInput.files = e.dataTransfer.files;
+      processFile(file);
+    }
   }
 });
 
