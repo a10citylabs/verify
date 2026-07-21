@@ -550,6 +550,18 @@
     color: var(--info);
 }
 
+.cert-trust-value {
+    font-weight: 600;
+}
+
+.cert-trust-value.trusted {
+    color: var(--success);
+}
+
+.cert-trust-value.untrusted {
+    color: var(--warning);
+}
+
 .cert-serial {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
