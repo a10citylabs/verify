@@ -4,6 +4,11 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
 import { createC2pa, type C2paSdk } from '@contentauth/c2pa-web';
 import wasmSrc from '@contentauth/c2pa-web/resources/c2pa.wasm?url';
+import c2paTrustList from './trust/C2PA-TRUST-LIST.pem?raw';
+import c2paTsaTrustList from './trust/C2PA-TSA-TRUST-LIST.pem?raw';
+import interimTrustAnchors from './trust/anchors.pem?raw';
+import allowedCertHashes from './trust/allowed.sha256.txt?raw';
+import trustStoreConfig from './trust/store.cfg?raw';
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
@@ -48,7 +53,19 @@ function isVideoFormat(format: string): boolean {
 // Initialize C2PA SDK
 async function initC2pa(): Promise<void> {
   try {
-    c2pa = await createC2pa({ wasmSrc });
+    c2pa = await createC2pa({
+      wasmSrc,
+      settings: {
+        trust: {
+          // Official C2PA trust list + TSA list, plus the frozen interim
+          // Content Credentials list for pre-2026 signers. See src/trust/README.md.
+          trustAnchors: [c2paTrustList, c2paTsaTrustList, interimTrustAnchors].join('\n'),
+          allowedList: allowedCertHashes,
+          trustConfig: trustStoreConfig,
+        },
+        verify: { verifyTrust: true },
+      },
+    });
     console.log('C2PA SDK initialized successfully');
     
     // Load default image after SDK is ready

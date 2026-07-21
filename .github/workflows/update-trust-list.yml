@@ -1,0 +1,60 @@
+name: Update C2PA trust list
+
+on:
+  # Cron cannot express an exact 14-day cadence, so run on the 1st and 15th
+  # of each month (~every two weeks) at 06:00 UTC
+  schedule:
+    - cron: '0 6 1,15 * *'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-trust-list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Fetch latest trust lists
+        run: node scripts/update-trust-list.mjs
+
+      - name: Update last-updated date in trust README
+        run: |
+          sed -i "s/^Last updated: .*/Last updated: $(date -u +%Y-%m-%d)/" src/trust/README.md
+
+      - name: Verify build with updated lists
+        run: |
+          npm ci
+          npm run build
+
+      # Opens a PR only when the fetched lists differ from what is committed;
+      # reuses/updates the same branch and PR on subsequent runs.
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: src/trust/
+          branch: automated/update-trust-list
+          delete-branch: true
+          commit-message: Update C2PA trust lists
+          title: Update C2PA trust lists
+          body: |
+            Automated refresh of the C2PA trust lists in `src/trust/`, fetched by
+            the scheduled `update-trust-list` workflow via `npm run update-trust-list`.
+
+            Sources:
+            - Official C2PA trust list and TSA trust list: [c2pa-org/conformance-public](https://github.com/c2pa-org/conformance-public/tree/main/trust-list)
+            - Interim Content Credentials trust list: [contentcredentials.org/trust](https://contentcredentials.org/trust/anchors.pem)
+
+            Review the certificate changes before merging; merging deploys them
+            with the next Pages build.
