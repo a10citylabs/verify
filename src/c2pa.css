@@ -187,8 +187,32 @@
     object-fit: contain;
 }
 
+.preview-container audio {
+    width: 100%;
+    display: block;
+    margin: 1.5rem 0;
+}
+
+.preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 2rem 1rem;
+    color: var(--gray-500);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.preview-placeholder svg {
+    width: 32px;
+    height: 32px;
+}
+
 .preview-container img[hidden],
-.preview-container video[hidden] {
+.preview-container video[hidden],
+.preview-container audio[hidden],
+.preview-placeholder[hidden] {
     display: none;
 }
 

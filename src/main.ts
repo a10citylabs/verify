@@ -2,7 +2,12 @@ import './style.css';
 import './c2pa.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
-import { createC2pa, type C2paSdk } from '@contentauth/c2pa-web';
+import {
+  createC2pa,
+  isSupportedReaderFormat,
+  READER_SUPPORTED_FORMATS,
+  type C2paSdk,
+} from '@contentauth/c2pa-web';
 import wasmSrc from '@contentauth/c2pa-web/resources/c2pa.wasm?url';
 
 // DOM Elements
@@ -11,6 +16,8 @@ const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const previewCard = document.getElementById('preview-card') as HTMLDivElement;
 const previewImage = document.getElementById('preview-image') as HTMLImageElement;
 const previewVideo = document.getElementById('preview-video') as HTMLVideoElement;
+const previewAudio = document.getElementById('preview-audio') as HTMLAudioElement;
+const previewPlaceholder = document.getElementById('preview-placeholder') as HTMLDivElement;
 const fileInfo = document.getElementById('file-info') as HTMLDivElement;
 const loadingState = document.getElementById('loading-state') as HTMLDivElement;
 const loadingText = document.getElementById('loading-text') as HTMLSpanElement;
@@ -27,22 +34,72 @@ let c2pa: C2paSdk | null = null;
 let currentJsonData: string = '';
 let previewUrl: string | null = null;
 
-const MP4_MIME_TYPES = ['video/mp4', 'application/mp4'];
+// Accept everything the C2PA reader supports. The SDK list mixes MIME
+// types and bare extensions; the accept attribute needs a dot on the latter.
+fileInput.accept = READER_SUPPORTED_FORMATS
+  .map((format) => (format.includes('/') ? format : `.${format}`))
+  .join(',');
 
-// Determine the MIME type to hand to the C2PA reader. Some platforms
-// leave file.type empty, so fall back to the file extension.
+// Determine the format string to hand to the C2PA reader. Prefer the
+// browser-reported MIME type; some platforms report nothing or a
+// nonstandard type (HEIC, camera RAW, .c2pa), so fall back to the file
+// extension, which the SDK also accepts as a format.
 function resolveFormat(file: File): string {
-  if (file.type) return file.type;
-  if (/\.mp4$/i.test(file.name)) return 'video/mp4';
-  return '';
+  if (file.type && isSupportedReaderFormat(file.type)) return file.type;
+  const dot = file.name.lastIndexOf('.');
+  const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+  if (ext && isSupportedReaderFormat(ext)) return ext;
+  return file.type;
 }
 
-function isMp4Format(format: string): boolean {
-  return MP4_MIME_TYPES.includes(format);
+type PreviewKind = 'image' | 'video' | 'audio' | 'none';
+
+const EXTENSION_PREVIEW_KINDS: Record<string, PreviewKind> = {
+  jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
+  avif: 'image', heic: 'image', heif: 'image', tif: 'image', tiff: 'image',
+  dng: 'image', nef: 'image', arw: 'image', svg: 'image',
+  mp4: 'video', mov: 'video', avi: 'video',
+  mp3: 'audio', wav: 'audio', m4a: 'audio',
+};
+
+function previewKind(format: string): PreviewKind {
+  if (format.startsWith('image/')) return 'image';
+  if (format.startsWith('video/') || format === 'application/mp4' || format === 'application/x-troff-msvideo') return 'video';
+  if (format.startsWith('audio/')) return 'audio';
+  return EXTENSION_PREVIEW_KINDS[format] ?? 'none';
 }
 
-function isVideoFormat(format: string): boolean {
-  return format.startsWith('video/') || format === 'application/mp4';
+// Show exactly one preview element (or the no-preview placeholder)
+function showPreviewElement(kind: PreviewKind): void {
+  previewImage.hidden = kind !== 'image';
+  previewVideo.hidden = kind !== 'video';
+  previewAudio.hidden = kind !== 'audio';
+  previewPlaceholder.hidden = kind !== 'none';
+}
+
+// Fall back to the placeholder when the browser can't render a format
+// the SDK can still read (e.g. HEIC, TIFF, camera RAW).
+for (const el of [previewImage, previewVideo, previewAudio]) {
+  el.addEventListener('error', () => {
+    if (!el.hidden && el.getAttribute('src')) showPreviewElement('none');
+  });
+}
+
+function updatePreview(file: File, kind: PreviewKind): void {
+  previewCard.hidden = false;
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(file);
+
+  previewVideo.pause();
+  previewAudio.pause();
+  previewImage.removeAttribute('src');
+  previewVideo.removeAttribute('src');
+  previewAudio.removeAttribute('src');
+
+  showPreviewElement(kind);
+  if (kind === 'image') previewImage.src = previewUrl;
+  else if (kind === 'video') previewVideo.src = previewUrl;
+  else if (kind === 'audio') previewAudio.src = previewUrl;
 }
 
 // Initialize C2PA SDK
@@ -677,26 +734,18 @@ async function processFile(file: File): Promise<void> {
   }
   
   const format = resolveFormat(file);
-  const isVideo = isVideoFormat(format);
+  const kind = previewKind(format);
 
-  // Update preview, swapping between the image and video elements
-  previewCard.hidden = false;
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
-  previewUrl = URL.createObjectURL(file);
-  previewImage.hidden = isVideo;
-  previewVideo.hidden = !isVideo;
-  if (isVideo) {
-    previewImage.removeAttribute('src');
-    previewVideo.src = previewUrl;
-  } else {
-    previewVideo.pause();
-    previewVideo.removeAttribute('src');
-    previewImage.src = previewUrl;
-  }
+  updatePreview(file, kind);
   fileInfo.textContent = `${file.name} • ${formatFileSize(file.size)} • ${format || 'unknown type'}`;
 
+  if (!format || !isSupportedReaderFormat(format)) {
+    showError(`Unsupported file type${file.type ? ` (${file.type})` : ''}. Please choose one of the supported formats.`);
+    return;
+  }
+
   // Show loading state
-  loadingText.textContent = isVideo ? 'Analyzing video...' : 'Analyzing image...';
+  loadingText.textContent = `Analyzing ${kind === 'none' ? 'file' : kind}...`;
   showState('loading');
 
   try {
@@ -791,11 +840,8 @@ dropZone.addEventListener('drop', (e) => {
   
   const file = e.dataTransfer?.files[0];
   if (file) {
-    const format = resolveFormat(file);
-    if (format.startsWith('image/') || isMp4Format(format)) {
-      fileInput.files = e.dataTransfer.files;
-      processFile(file);
-    }
+    fileInput.files = e.dataTransfer.files;
+    processFile(file);
   }
 });
 
