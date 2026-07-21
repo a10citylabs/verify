@@ -61,14 +61,14 @@
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </div>
-          <h2 id="upload-heading">Upload Image</h2>
-          <p>Select an image to view its C2PA content credentials and provenance data.</p>
-          
-          <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop zone for image upload">
-            <input 
-              type="file" 
-              id="file-input" 
-              accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+          <h2 id="upload-heading">Upload Media</h2>
+          <p>Select an image or MP4 video to view its C2PA content credentials and provenance data.</p>
+
+          <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop zone for media upload">
+            <input
+              type="file"
+              id="file-input"
+              accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,video/mp4,.mp4"
               aria-describedby="file-help"
               hidden
             >
@@ -79,9 +79,9 @@
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
             </div>
-            <span class="upload-text">Drag & drop an image here</span>
+            <span class="upload-text">Drag & drop an image or video here</span>
             <span class="upload-subtext">or click to browse</span>
-            <span id="file-help" class="sr-only">Supported formats: JPEG, PNG, WebP, AVIF, HEIC</span>
+            <span id="file-help" class="sr-only">Supported formats: JPEG, PNG, WebP, AVIF, HEIC, MP4</span>
           </div>
 
           <div class="supported-formats">
@@ -89,14 +89,16 @@
             <span class="format-tag">PNG</span>
             <span class="format-tag">WebP</span>
             <span class="format-tag">AVIF</span>
+            <span class="format-tag">MP4</span>
           </div>
         </div>
 
         <!-- Preview Card -->
         <div class="preview-card" id="preview-card" hidden>
-          <h3>Image Preview</h3>
+          <h3>Media Preview</h3>
           <div class="preview-container">
             <img id="preview-image" alt="Uploaded image preview">
+            <video id="preview-video" controls muted playsinline hidden aria-label="Uploaded video preview"></video>
           </div>
           <div class="file-info" id="file-info"></div>
         </div>
@@ -110,7 +112,7 @@
           <!-- Loading State -->
           <div class="loading-state" id="loading-state" hidden>
             <div class="spinner" aria-hidden="true"></div>
-            <span>Analyzing image...</span>
+            <span id="loading-text">Analyzing media...</span>
           </div>
 
           <!-- Empty State -->
@@ -124,7 +126,7 @@
                 <polyline points="10 9 9 9 8 9"/>
               </svg>
             </div>
-            <p>Upload an image to view its C2PA content credentials</p>
+            <p>Upload an image or video to view its C2PA content credentials</p>
           </div>
 
           <!-- No C2PA Data State -->
@@ -137,7 +139,7 @@
               </svg>
             </div>
             <h3>No Content Credentials Found</h3>
-            <p>This image does not contain C2PA content credentials.</p>
+            <p>This file does not contain C2PA content credentials.</p>
           </div>
 
           <!-- Error State -->
@@ -150,7 +152,7 @@
               </svg>
             </div>
             <h3>Error</h3>
-            <p id="error-message">An error occurred while processing the image.</p>
+            <p id="error-message">An error occurred while processing the file.</p>
           </div>
 
           <!-- Results Container -->
