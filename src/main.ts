@@ -463,11 +463,28 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
   // Signer/Issuer Section
   const signatureInfo = (activeManifest.signature_info || activeManifest.signatureInfo) as Record<string, unknown> | undefined;
   let signerHtml = '';
-  
+
+  // Certificate trust is reported via a `signingCredential.untrusted` entry
+  // in validation_status when the signing cert doesn't chain to a trust
+  // anchor; its absence (with a signature present) means the cert is trusted.
+  const certUntrusted = validationIssues.some((issue: unknown) => {
+    const code = (issue as Record<string, unknown>).code;
+    return typeof code === 'string' && code.startsWith('signingCredential.') && code.includes('untrusted');
+  });
+  const isCertTrusted = certUntrusted ? false : true;
+
+  // Claim generator identifies the software/device used to create the credential
+  const claimGeneratorRaw = (activeManifest.claim_generator || activeManifest.claimGenerator) as string | undefined;
+  let softwareUsed: string | null = null;
+  if (claimGeneratorRaw) {
+    const parts = claimGeneratorRaw.split(' ');
+    softwareUsed = parts[0].replace(/_/g, ' ').replace(/\//g, ' ');
+  }
+
   if (signatureInfo) {
     const issuer = signatureInfo.issuer ? String(signatureInfo.issuer) : 'Unknown Issuer';
     const signedAt = signatureInfo.time ? formatDate(String(signatureInfo.time)) : null;
-    
+
     signerHtml = `
       <div class="credential-section">
         <h3 class="section-title">
@@ -481,6 +498,18 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
             <span class="item-label">Issuer</span>
             <span class="item-value issuer-value">${escapeHtml(issuer)}</span>
           </div>
+          <div class="credential-item">
+            <span class="item-label">Cert Trust</span>
+            <span class="item-value cert-trust-value ${isCertTrusted ? 'trusted' : 'untrusted'}">
+              ${isCertTrusted ? 'Trusted' : 'Not Trusted'}
+            </span>
+          </div>
+          ${softwareUsed ? `
+          <div class="credential-item">
+            <span class="item-label">Software Used</span>
+            <span class="item-value">${escapeHtml(softwareUsed)}</span>
+          </div>
+          ` : ''}
           ${signedAt ? `
           <div class="credential-item">
             <span class="item-label">Date Signed</span>
@@ -491,7 +520,7 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
       </div>
     `;
   }
-  
+
   // Content Information Section
   const title = activeManifest.title ? String(activeManifest.title) : null;
   const format = activeManifest.format ? String(activeManifest.format) : null;
@@ -535,18 +564,11 @@ function createCredentialDetails(manifestStore: unknown, verifyTimeMs?: number):
   }
   
   // Process/Actions Section
-  const claimGenerator = (activeManifest.claim_generator || activeManifest.claimGenerator) ? String(activeManifest.claim_generator || activeManifest.claimGenerator) : null;
   const actions = assertions ? extractActions(assertions) : [];
-  
+  const appName = softwareUsed;
+
   let processHtml = '';
-  if (claimGenerator || actions.length > 0) {
-    // Parse claim generator to get app name
-    let appName = claimGenerator;
-    if (claimGenerator) {
-      const parts = claimGenerator.split(' ');
-      appName = parts[0].replace(/_/g, ' ').replace(/\//g, ' ');
-    }
-    
+  if (appName || actions.length > 0) {
     processHtml = `
       <div class="credential-section">
         <h3 class="section-title">
