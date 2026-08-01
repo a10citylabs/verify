@@ -28,4 +28,15 @@ npm run update-trust-list
 This re-fetches every file above from its source, validates the content, and
 overwrites this directory. Review the diff and commit.
 
+The `update-trust-list` workflow does the same thing on the 1st and 15th of each
+month, pushing any change to the `automated/update-trust-list` branch and opening
+a pull request for review. Opening that pull request needs one of:
+
+- **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to
+  create and approve pull requests** enabled, or
+- a `TRUST_LIST_PAT` repository secret holding a token with `repo` scope.
+
+Without either, the refreshed lists are still pushed to the branch and the run
+summary links to the pull request to open by hand.
+
 Last updated: 2026-07-21

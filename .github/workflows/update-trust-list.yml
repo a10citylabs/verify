@@ -29,9 +29,15 @@ jobs:
       - name: Fetch latest trust lists
         run: node scripts/update-trust-list.mjs
 
+      # Only touch the date when a list actually changed, otherwise the README
+      # is a diff on every run and opens a pull request with no real content.
       - name: Update last-updated date in trust README
         run: |
-          sed -i "s/^Last updated: .*/Last updated: $(date -u +%Y-%m-%d)/" src/trust/README.md
+          if git diff --quiet -- src/trust/ ':!src/trust/README.md'; then
+            echo "Trust lists are unchanged; leaving the README date alone."
+          else
+            sed -i "s/^Last updated: .*/Last updated: $(date -u +%Y-%m-%d)/" src/trust/README.md
+          fi
 
       - name: Verify build with updated lists
         run: |
@@ -40,9 +46,18 @@ jobs:
 
       # Opens a PR only when the fetched lists differ from what is committed;
       # reuses/updates the same branch and PR on subsequent runs.
+      #
+      # GITHUB_TOKEN is refused by the "Allow GitHub Actions to create and
+      # approve pull requests" repository/organisation setting. Pushing the
+      # branch still works, so the failure is handled in the next step rather
+      # than losing the update. Set a TRUST_LIST_PAT secret (a token with
+      # `repo` scope) to have the pull request opened without that setting.
       - name: Create pull request
+        id: create-pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.TRUST_LIST_PAT || secrets.GITHUB_TOKEN }}
           add-paths: src/trust/
           branch: automated/update-trust-list
           delete-branch: true
@@ -58,3 +73,48 @@ jobs:
 
             Review the certificate changes before merging; merging deploys them
             with the next Pages build.
+
+      # Treat a refused pull request as a warning when the update itself was
+      # pushed: the branch carries the new lists and only needs a PR opening by
+      # hand. Anything else that goes wrong still fails the run.
+      - name: Report outcome
+        env:
+          BRANCH: automated/update-trust-list
+          BASE: ${{ github.ref_name }}
+          PR_URL: ${{ steps.create-pr.outputs.pull-request-url }}
+          OUTCOME: ${{ steps.create-pr.outcome }}
+        run: |
+          compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${BASE}...${BRANCH}?expand=1"
+
+          if [ "$OUTCOME" = 'success' ]; then
+            if [ -n "$PR_URL" ]; then
+              echo "Pull request ready for review: $PR_URL" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo 'Trust lists are already up to date; nothing to review.' >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+
+          # The action pushes the branch before it calls the pull request API,
+          # so a local branch matching origin means only the API call failed.
+          local_sha="$(git rev-parse --verify --quiet "refs/heads/${BRANCH}" || true)"
+          remote_sha="$(git ls-remote --heads origin "$BRANCH" | cut -f1 || true)"
+
+          if [ -z "$local_sha" ] || [ "$local_sha" != "$remote_sha" ]; then
+            echo "::error::Failed to push the trust list update to '${BRANCH}'."
+            exit 1
+          fi
+
+          echo "::warning::Trust lists were pushed to '${BRANCH}' but the pull request could not be opened. Open it at ${compare_url}"
+          {
+            echo '## Pull request could not be opened'
+            echo
+            echo "The updated trust lists are on \`${BRANCH}\` (\`${remote_sha}\`), but GitHub Actions"
+            echo 'refused to create the pull request.'
+            echo
+            echo "[Open the pull request](${compare_url})"
+            echo
+            echo 'To let this run unattended, either enable **Settings → Actions → General →'
+            echo 'Workflow permissions → Allow GitHub Actions to create and approve pull requests**,'
+            echo 'or add a `TRUST_LIST_PAT` secret holding a token with `repo` scope.'
+          } >> "$GITHUB_STEP_SUMMARY"
