@@ -39,4 +39,4 @@ a pull request for review. Opening that pull request needs one of:
 Without either, the refreshed lists are still pushed to the branch and the run
 summary links to the pull request to open by hand.
 
-Last updated: 2026-07-21
+Last updated: 2026-10-01
